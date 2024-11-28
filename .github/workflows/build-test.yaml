@@ -24,8 +24,8 @@ jobs:
       - name: Set up Dremio environment
         run: |
           echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_USERNAME=admin" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_PASSWORD=admin" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
           echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
           echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r dev_requirements.txt
+
+      - name: Clean up __pycache__ directories
+        run: find . -type d -name "__pycache__" -exec rm -r {} +
 
       - name: Run tests
         run: |
