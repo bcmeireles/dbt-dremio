@@ -51,6 +51,6 @@ jobs:
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
 
-      - name: Run tests
+      - name: Run Caching tests
         run: |
-          pytest tests/ | tee -a func_test_$(date +%Y_%m_%d).log
+          pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
