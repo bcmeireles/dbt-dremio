@@ -121,6 +121,15 @@ jobs:
             }'
 
           echo "S3 Source created in Dremio"
+      
+      - name: "Create Dremio Space"
+        run: |
+          curl -s -X POST "http://127.0.0.1:9047/api/v3/catalog" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: _dremio$AUTH_TOKEN" \
+              --data '{ "entityType": "space", "name": "dbt_test_space" }'
+  
+            echo "Space 'dbt_test_space' created in Dremio"
 
       - name: Set up Python
         uses: actions/setup-python@v2
