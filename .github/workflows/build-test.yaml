@@ -138,7 +138,7 @@ jobs:
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
-          DREMIO_SOFTWARE_HOST=127.0.0.1
+          DREMIO_SOFTWARE_HOST=dremio
           DREMIO_SOFTWARE_USERNAME=dremio
           DREMIO_SOFTWARE_PASSWORD=dremio123
           DREMIO_DATALAKE=dbt_test_source
