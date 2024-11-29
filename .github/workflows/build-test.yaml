@@ -23,17 +23,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
 
-      - name: Set up Dremio environment
-        run: |
-          echo "DREMIO_SOFTWARE_HOST=127.0.0.1" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_USERNAME=admin" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=password" >> $GITHUB_ENV
-          echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
-          echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
-
       - name: Install AWS CLI
         run: pip install awscli
 
@@ -73,7 +62,7 @@ jobs:
           # Log in to Dremio to get the auth token
           AUTH_TOKEN=$(curl -s -X POST "http://127.0.0.1:9047/apiv2/login" \
             -H "Content-Type: application/json" \
-            --data "{\"userName\":\"$DREMIO_SOFTWARE_USERNAME\", \"password\":\"$DREMIO_SOFTWARE_PASSWORD\"}" | jq -r .token)
+            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
 
           # Check if AUTH_TOKEN is not empty
           if [ -z "$AUTH_TOKEN" ]; then
@@ -122,6 +111,41 @@ jobs:
 
           echo "S3 Source created in Dremio"
 
+      - name: "Create Dremio Space"
+        run: |
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+          # Wait for Dremio to be ready
+          until curl -s http://127.0.0.1:9047; do
+            echo "Waiting for Dremio..."
+            sleep 5
+          done
+
+          echo "Dremio is up. Proceeding with configuration..."
+
+          # Log in to Dremio to get the auth token
+          AUTH_TOKEN=$(curl -s -X POST "http://127.0.0.1:9047/apiv2/login" \
+            -H "Content-Type: application/json" \
+            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
+
+          # Check if AUTH_TOKEN is not empty
+          if [ -z "$AUTH_TOKEN" ]; then
+            echo "Failed to obtain Dremio auth token"
+            exit 1
+          fi
+
+          echo "Obtained Dremio auth token"
+
+          # Create a new space in Dremio
+          curl -s -X POST "http://127.0.0.1:9047/api/v3/space" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: _dremio$AUTH_TOKEN" \
+            --data '{ "name": "dbt_test_space" }'
+
+          echo "Space 'dbt_test_space' created in Dremio"
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -133,22 +157,18 @@ jobs:
 
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
-      
+
       - name: Create .env file for tests
         run: |
-          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           mkdir -p tests
-          cat <<EOF > tests/.env
-          DREMIO_SOFTWARE_HOST=127.0.0.1
-          DREMIO_SOFTWARE_USERNAME=dremio
-          DREMIO_SOFTWARE_PASSWORD=dremio123
-          DREMIO_DATALAKE=dbt_test_source
-          DREMIO_DATABASE=dbt_test
-          DBT_TEST_USER_1=dbt_test_user_1
-          DBT_TEST_USER_2=dbt_test_user_2
-          DBT_TEST_USER_3=dbt_test_user_3
-          EOF
+          echo "DREMIO_SOFTWARE_HOST=127.0.0.1" > tests/.env
+          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> tests/.env
+          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> tests/.env
+          echo "DREMIO_DATALAKE=dbt_test_space" >> tests/.env
+          echo "DREMIO_DATABASE=dbt_test" >> tests/.env
+          echo "DBT_TEST_USER_1=dbt_test_user_1" >> tests/.env
+          echo "DBT_TEST_USER_2=dbt_test_user_2" >> tests/.env
+          echo "DBT_TEST_USER_3=dbt_test_user_3" >> tests/.env
 
       - name: Run Caching tests
         run: |
