@@ -133,6 +133,20 @@ jobs:
 
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
+      
+      - name: Create .env file for tests
+        run: |
+          mkdir -p tests
+          cat <<EOF > tests/.env
+          DREMIO_SOFTWARE_HOST=localhost
+          DREMIO_SOFTWARE_USERNAME=dremio
+          DREMIO_SOFTWARE_PASSWORD=dremio123
+          DREMIO_DATALAKE=dbt_test_source
+          DREMIO_DATABASE=dbt_test
+          DBT_TEST_USER_1=dbt_test_user_1
+          DBT_TEST_USER_2=dbt_test_user_2
+          DBT_TEST_USER_3=dbt_test_user_3
+          EOF
 
       - name: Run Caching tests
         run: |
