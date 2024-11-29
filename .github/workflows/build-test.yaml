@@ -25,9 +25,9 @@ jobs:
 
       - name: Set up Dremio environment
         run: |
-          echo "DREMIO_SOFTWARE_HOST=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_HOST=127.0.0.1" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_USERNAME=admin" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_PASSWORD=password" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
           echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
           echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
@@ -136,9 +136,11 @@ jobs:
       
       - name: Create .env file for tests
         run: |
+          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           mkdir -p tests
           cat <<EOF > tests/.env
-          DREMIO_SOFTWARE_HOST=dremio
+          DREMIO_SOFTWARE_HOST=127.0.0.1
           DREMIO_SOFTWARE_USERNAME=dremio
           DREMIO_SOFTWARE_PASSWORD=dremio123
           DREMIO_DATALAKE=dbt_test_source
