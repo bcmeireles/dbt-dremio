@@ -23,17 +23,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
 
-      - name: Set up Dremio environment
-        run: |
-          echo "DREMIO_SOFTWARE_HOST=127.0.0.1" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_USERNAME=admin" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=admin" >> $GITHUB_ENV
-          echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
-          echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
-
       - name: Install AWS CLI
         run: pip install awscli
 
