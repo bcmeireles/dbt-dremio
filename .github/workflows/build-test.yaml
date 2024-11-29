@@ -26,8 +26,8 @@ jobs:
       - name: Set up Dremio environment
         run: |
           echo "DREMIO_SOFTWARE_HOST=127.0.0.1" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_USERNAME=admin" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=password" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
           echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
           echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
@@ -73,7 +73,7 @@ jobs:
           # Log in to Dremio to get the auth token
           AUTH_TOKEN=$(curl -s -X POST "http://127.0.0.1:9047/apiv2/login" \
             -H "Content-Type: application/json" \
-            --data "{\"userName\":\"$DREMIO_SOFTWARE_USERNAME\", \"password\":\"$DREMIO_SOFTWARE_PASSWORD\"}" | jq -r .token)
+            --data "{\"userName\":\"dremio", \"password\":\"dremio123"}" | jq -r .token)
 
           # Check if AUTH_TOKEN is not empty
           if [ -z "$AUTH_TOKEN" ]; then
@@ -122,15 +122,6 @@ jobs:
 
           echo "S3 Source created in Dremio"
 
-      - name: "Create Dremio Space"
-        run: |
-          curl -s -X POST "http://127.0.0.1:9047/api/v3/catalog" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: _dremio$AUTH_TOKEN" \
-            --data '{ "entityType": "space", "name": "dbt_test_space" }'
-
-          echo "Space 'dbt_test_space' created in Dremio"
-
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -145,8 +136,6 @@ jobs:
       
       - name: Create .env file for tests
         run: |
-          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           mkdir -p tests
           cat <<EOF > tests/.env
           DREMIO_SOFTWARE_HOST=127.0.0.1
