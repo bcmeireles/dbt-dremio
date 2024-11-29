@@ -25,7 +25,7 @@ jobs:
 
       - name: Set up Dremio environment
         run: |
-          echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_HOST=127.0.0.1" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_USERNAME=admin" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_PASSWORD=admin" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
@@ -54,7 +54,7 @@ jobs:
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
 
       - name: Create MinIO bucket
-        run: aws --endpoint-url http://localhost:9000 s3 mb s3://dbtdremios3
+        run: aws --endpoint-url http://127.0.0.1:9000 s3 mb s3://dbtdremios3
 
       - name: "Create Dremio S3 Source"
         run: |
@@ -63,7 +63,7 @@ jobs:
           sudo apt-get install -y curl jq
 
           # Wait for Dremio to be ready
-          until curl -s http://localhost:9047; do
+          until curl -s http://127.0.0.1:9047; do
             echo "Waiting for Dremio..."
             sleep 5
           done
@@ -71,7 +71,7 @@ jobs:
           echo "Dremio is up. Proceeding with configuration..."
 
           # Log in to Dremio to get the auth token
-          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
+          AUTH_TOKEN=$(curl -s -X POST "http://127.0.0.1:9047/apiv2/login" \
             -H "Content-Type: application/json" \
             --data "{\"userName\":\"$DREMIO_SOFTWARE_USERNAME\", \"password\":\"$DREMIO_SOFTWARE_PASSWORD\"}" | jq -r .token)
 
@@ -84,7 +84,7 @@ jobs:
           echo "Obtained Dremio auth token"
 
           # Create the S3 source in Dremio
-          curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
+          curl -s -X PUT "http://127.0.0.1:9047/apiv2/source/dbt_test_source" \
             -H "Content-Type: application/json" \
             -H "Authorization: _dremio$AUTH_TOKEN" \
             --data '{
@@ -138,7 +138,7 @@ jobs:
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
-          DREMIO_SOFTWARE_HOST=localhost
+          DREMIO_SOFTWARE_HOST=127.0.0.1
           DREMIO_SOFTWARE_USERNAME=dremio
           DREMIO_SOFTWARE_PASSWORD=dremio123
           DREMIO_DATALAKE=dbt_test_source
