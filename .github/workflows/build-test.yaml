@@ -19,14 +19,6 @@ jobs:
           - 9047:9047
         env:
           DREMIO_JAVA_SERVER_EXTRA_OPTS: -Ddebug.addDefaultUser=true
-      minio:
-        image: minio/minio
-        ports:
-          - 9001:9001
-          - 9000:9000
-        env:
-          MINIO_ROOT_USER: admin
-          MINIO_ROOT_PASSWORD: password
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -45,6 +37,16 @@ jobs:
       - name: Install AWS CLI
         run: pip install awscli
 
+      - name: Start MinIO Service
+        run: |
+          docker run -d \
+            -p 9000:9000 \
+            -p 9001:9001 \
+            -e "MINIO_ROOT_USER=admin" \
+            -e "MINIO_ROOT_PASSWORD=password" \
+            --name minio \
+            minio/minio server /data --console-address ":9001"
+
       - name: Configure AWS credentials for MinIO
         run: |
           echo "AWS_ACCESS_KEY_ID=admin" >> $GITHUB_ENV
@@ -59,28 +61,28 @@ jobs:
           # Install required tools
           sudo apt-get update
           sudo apt-get install -y curl jq
-      
+
           # Wait for Dremio to be ready
           until curl -s http://localhost:9047; do
             echo "Waiting for Dremio..."
             sleep 5
           done
-      
+
           echo "Dremio is up. Proceeding with configuration..."
-      
+
           # Log in to Dremio to get the auth token
           AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
             -H "Content-Type: application/json" \
             --data "{\"userName\":\"$DREMIO_SOFTWARE_USERNAME\", \"password\":\"$DREMIO_SOFTWARE_PASSWORD\"}" | jq -r .token)
-      
+
           # Check if AUTH_TOKEN is not empty
           if [ -z "$AUTH_TOKEN" ]; then
             echo "Failed to obtain Dremio auth token"
             exit 1
           fi
-      
+
           echo "Obtained Dremio auth token"
-      
+
           # Create the S3 source in Dremio
           curl -s -X PUT "http://localhost:9047/apiv2/source/S3Source" \
             -H "Content-Type: application/json" \
@@ -117,8 +119,8 @@ jobs:
                 "updateMode": "PREFETCH_QUERIED"
               }
             }'
-      
-            echo "S3 Source created in Dremio"
+
+          echo "S3 Source created in Dremio"
 
       - name: Set up Python
         uses: actions/setup-python@v2
