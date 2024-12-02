@@ -163,11 +163,15 @@ jobs:
           -H 'Content-Type: application/json' \
           --data-raw '{"firstName":"dbt","lastName":"user3","name":"dbt_test_user_3","email":"dbt_test_user_3@dremio.com","password":"dremio123"}'
 
+          echo "users created"
+
       - name: Create dbt projects
         run: |
           printf "1\n3\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_cloud_options
           printf "1\n2\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_sw_up_options
           printf "1\n3\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_sw_pat_options
+
+          echo "projects created"
 
       # 12. Clean Up __pycache__ Directories
       - name: Clean up __pycache__ directories
