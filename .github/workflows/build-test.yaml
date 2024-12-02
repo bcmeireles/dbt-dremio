@@ -164,10 +164,10 @@ jobs:
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
 
-      # 14. Run Caching Tests
-      - name: Run Caching Tests
+      # 14. Run Tests
+      - name: Run Tests
         run: |
-          pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
+          pytest tests/ | tee -a func_test_$(date +%Y_%m_%d).log
 
       # 15. Cleanup Docker Containers and Network
       - name: Cleanup Docker Containers and Network
