@@ -19,13 +19,19 @@ jobs:
           - 9047:9047
         env:
           DREMIO_JAVA_SERVER_EXTRA_OPTS: -Ddebug.addDefaultUser=true
+        options: >-
+          --health-cmd "curl -s http://localhost:9047" 
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
 
       - name: Set up Dremio environment
         run: |
-          echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_HOST=minio" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
@@ -34,46 +40,58 @@ jobs:
           echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
           echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
 
-      - name: Install AWS CLI
-        run: pip install awscli
+      - name: Create Docker Network
+        run: |
+          docker network create ci-network
 
       - name: Start MinIO Service
         run: |
           docker run -d \
+            --network ci-network \
+            --name minio \
             -p 9000:9000 \
             -p 9001:9001 \
             -e "MINIO_ROOT_USER=admin" \
             -e "MINIO_ROOT_PASSWORD=password" \
-            --name minio \
             minio/minio server /data --console-address ":9001"
-
-      - name: Configure AWS credentials for MinIO
-        run: |
-          echo "AWS_ACCESS_KEY_ID=admin" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=password" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
 
       - name: Wait for MinIO to be ready
         run: |
           for i in {1..12}; do
-            if curl -s http://localhost:9000/minio/health/live; then
+            if docker exec minio curl -s http://localhost:9000/minio/health/live; then
               echo "MinIO is up."
               break
             fi
             echo "Waiting for MinIO to become ready..."
             sleep 5
           done
-          # Optionally, verify again
-          if ! curl -s http://localhost:9000/minio/health/live; then
+          # Verify again
+          if ! docker exec minio curl -s http://localhost:9000/minio/health/live; then
             echo "MinIO did not become ready in time."
             exit 1
           fi
 
       - name: Create MinIO Bucket using mc
         run: |
-          docker run --rm minio/mc alias set myminio http://localhost:9000 admin password
-          docker run --rm minio/mc mb myminio/dbtdremios3
-          docker run --rm minio/mc ls myminio
+          # Set alias
+          docker run --rm \
+            --network ci-network \
+            minio/mc alias set myminio http://minio:9000 admin password
+
+          # Create bucket
+          docker run --rm \
+            --network ci-network \
+            minio/mc mb myminio/dbtdremios3
+
+          # (Optional) Set bucket policy
+          docker run --rm \
+            --network ci-network \
+            minio/mc policy set public myminio/dbtdremios3
+
+          # (Optional) List buckets to verify
+          docker run --rm \
+            --network ci-network \
+            minio/mc ls myminio
 
       - name: "Create Dremio S3 Source"
         run: |
@@ -101,13 +119,12 @@ jobs:
           fi
 
           echo "Obtained Dremio auth token"
-          echo "$AUTH_TOKEN"
 
           # Create the S3 source in Dremio
           curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
             -H "Content-Type: application/json" \
             -H "Authorization: _dremio$AUTH_TOKEN" \
-            --data "{\"name\":\"dbt_test_source\",\"config\":{\"credentialType\":\"ACCESS_KEY\",\"accessKey\":\"admin\",\"accessSecret\":\"password\",\"secure\":false,\"externalBucketList\":[],\"enableAsync\":true,\"enableFileStatusCheck\":true,\"rootPath\":\"/\",\"defaultCtasFormat\":\"ICEBERG\",\"propertyList\":[{\"name\":\"fs.s3a.path.style.access\",\"value\":\"true\"},{\"name\":\"fs.s3a.endpoint\",\"value\":\"localhost:9000\"},{\"name\":\"dremio.s3.compat\",\"value\":\"true\"}],\"whitelistedBuckets\":[],\"isCachingEnabled\":false,\"maxCacheSpacePct\":100},\"type\":\"S3\",\"metadataPolicy\":{\"deleteUnavailableDatasets\":true,\"autoPromoteDatasets\":false,\"namesRefreshMillis\":3600000,\"datasetDefinitionRefreshAfterMillis\":3600000,\"datasetDefinitionExpireAfterMillis\":10800000,\"authTTLMillis\":86400000,\"updateMode\":\"PREFETCH_QUERIED\"}}"
+            --data "{\"name\":\"dbt_test_source\",\"config\":{\"credentialType\":\"ACCESS_KEY\",\"accessKey\":\"admin\",\"accessSecret\":\"password\",\"secure\":false,\"externalBucketList\":[],\"enableAsync\":true,\"enableFileStatusCheck\":true,\"rootPath\":\"/\",\"defaultCtasFormat\":\"ICEBERG\",\"propertyList\":[{\"name\":\"fs.s3a.path.style.access\",\"value\":\"true\"},{\"name\":\"fs.s3a.endpoint\",\"value\":\"minio:9000\"},{\"name\":\"dremio.s3.compat\",\"value\":\"true\"}],\"whitelistedBuckets\":[],\"isCachingEnabled\":false,\"maxCacheSpacePct\":100},\"type\":\"S3\",\"metadataPolicy\":{\"deleteUnavailableDatasets\":true,\"autoPromoteDatasets\":false,\"namesRefreshMillis\":3600000,\"datasetDefinitionRefreshAfterMillis\":3600000,\"datasetDefinitionExpireAfterMillis\":10800000,\"authTTLMillis\":86400000,\"updateMode\":\"PREFETCH_QUERIED\"}}"
 
           echo "S3 Source created in Dremio"
 
@@ -117,7 +134,7 @@ jobs:
 
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
-      
+
       - name: Create .env file for tests
         run: |
           mkdir -p tests
@@ -131,8 +148,12 @@ jobs:
           DBT_TEST_USER_2=dbt_test_user_2
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
-          pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
 
       - name: Run Caching tests
         run: |
           pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
+
+      - name: Stop and Remove Docker Network
+        if: always()
+        run: |
+          docker network rm ci-network || echo "Network ci-network does not exist"
