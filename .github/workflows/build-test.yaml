@@ -251,10 +251,12 @@ jobs:
           pytest tests/caching/
       
       - name: Run component tests
+        if: always()
         run : |
           pytest tests/component/
 
       - name: Run fixtures tests
+        if: always()
         run : |
           pytest tests/fixtures/
 
