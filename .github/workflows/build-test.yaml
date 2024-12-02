@@ -53,6 +53,22 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=password" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
 
+      - name: Wait for MinIO to be ready
+        run: |
+          for i in {1..12}; do
+            if curl -s http://localhost:9000/minio/health/live; then
+              echo "MinIO is up."
+              break
+            fi
+            echo "Waiting for MinIO to become ready..."
+            sleep 5
+          done
+          # Optionally, verify again
+          if ! curl -s http://localhost:9000/minio/health/live; then
+            echo "MinIO did not become ready in time."
+            exit 1
+          fi
+
       - name: Create MinIO Bucket using mc
         run: |
           docker run --rm minio/mc alias set myminio http://localhost:9000 admin password
