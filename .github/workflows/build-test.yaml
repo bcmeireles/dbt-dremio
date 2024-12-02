@@ -78,17 +78,17 @@ jobs:
             --network ci-network \
             minio/mc alias set myminio http://minio:9000 admin password
 
-          # Create bucket
+          echo "Create bucket"
           docker run --rm \
             --network ci-network \
             minio/mc mb myminio/dbtdremios3
 
-          # (Optional) Set bucket policy
+          echo "(Optional) Set bucket policy"
           docker run --rm \
             --network ci-network \
             minio/mc policy set public myminio/dbtdremios3
 
-          # (Optional) List buckets to verify
+          echo "(Optional) List buckets to verify"
           docker run --rm \
             --network ci-network \
             minio/mc ls myminio
@@ -119,6 +119,7 @@ jobs:
           fi
 
           echo "Obtained Dremio auth token"
+          echo "$AUTH_TOKEN"
 
           # Create the S3 source in Dremio
           curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
