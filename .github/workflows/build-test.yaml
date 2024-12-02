@@ -60,7 +60,7 @@ jobs:
         run: |
           # Install required tools
           sudo apt-get update
-          sudo apt-get install -y curl jq git
+          sudo apt-get install -y curl jq
 
           # Wait for Dremio to be ready
           until curl -s http://127.0.0.1:9047; do
@@ -82,6 +82,7 @@ jobs:
           fi
 
           echo "Obtained Dremio auth token"
+          echo "$AUTH_TOKEN"
 
           # Create the S3 source in Dremio
           curl -s -X PUT "http://127.0.0.1:9047/apiv2/source/dbt_test_source" \
@@ -130,7 +131,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r dev_requirements.txt
-          pip install protobuf==4.21 dbt-core==1.8.0 && tail -f /dev/null && /bin/bash
 
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
