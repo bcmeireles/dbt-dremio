@@ -53,9 +53,13 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=password" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
 
-      - name: Create MinIO bucket
-        run: aws --endpoint-url http://localhost:9000 s3 mb s3://dbtdremios3
-
+      - name: Create MinIO Bucket using mc
+        run: |
+          docker run --rm minio/mc sh -c "
+            mc alias set myminio http://localhost:9000 admin password &&
+            mc mb myminio/dbtdremios3 &&
+            mc ls myminio
+          "
       - name: "Create Dremio S3 Source"
         run: |
           # Install required tools
