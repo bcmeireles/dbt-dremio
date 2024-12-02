@@ -119,4 +119,67 @@ jobs:
           sudo apt-get install -y curl jq
 
           echo "Logging into Dremio to obtain auth token..."
-          AUTH_TOKEN=$(curl
+          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
+            -H "Content-Type: application/json" \
+            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
+
+          # Check if AUTH_TOKEN is not empty
+          if [ -z "$AUTH_TOKEN" ]; then
+            echo "Failed to obtain Dremio auth token"
+            exit 1
+          fi
+
+          echo "Obtained Dremio auth token: $AUTH_TOKEN"
+
+          echo "Creating the S3 source in Dremio..."
+          curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: _dremio$AUTH_TOKEN" \
+            --data "{\"name\":\"dbt_test_source\",\"config\":{\"credentialType\":\"ACCESS_KEY\",\"accessKey\":\"admin\",\"accessSecret\":\"password\",\"secure\":false,\"externalBucketList\":[],\"enableAsync\":true,\"enableFileStatusCheck\":true,\"rootPath\":\"/\",\"defaultCtasFormat\":\"ICEBERG\",\"propertyList\":[{\"name\":\"fs.s3a.path.style.access\",\"value\":\"true\"},{\"name\":\"fs.s3a.endpoint\",\"value\":\"localhost:9000\"},{\"name\":\"dremio.s3.compat\",\"value\":\"true\"}],\"whitelistedBuckets\":[],\"isCachingEnabled\":false,\"maxCacheSpacePct\":100},\"type\":\"S3\",\"metadataPolicy\":{\"deleteUnavailableDatasets\":true,\"autoPromoteDatasets\":false,\"namesRefreshMillis\":3600000,\"datasetDefinitionRefreshAfterMillis\":3600000,\"datasetDefinitionExpireAfterMillis\":10800000,\"authTTLMillis\":86400000,\"updateMode\":\"PREFETCH_QUERIED\"}}"
+
+          echo "S3 Source created in Dremio"
+
+      # 11. Install Python Dependencies
+      - name: Install Dependencies
+        run: |
+          pip install -r dev_requirements.txt
+
+      # 12. Clean Up __pycache__ Directories
+      - name: Clean up __pycache__ directories
+        run: |
+          find . -type d -name "__pycache__" -exec rm -r {} +
+
+      # 13. Create .env File for Tests
+      - name: Create .env file for tests
+        run: |
+          mkdir -p tests
+          cat <<EOF > tests/.env
+          DREMIO_SOFTWARE_HOST=localhost
+          DREMIO_SOFTWARE_USERNAME=dremio
+          DREMIO_SOFTWARE_PASSWORD=dremio123
+          DREMIO_DATALAKE=dbt_test_source
+          DREMIO_DATABASE=dbt_test
+          DBT_TEST_USER_1=dbt_test_user_1
+          DBT_TEST_USER_2=dbt_test_user_2
+          DBT_TEST_USER_3=dbt_test_user_3
+          EOF
+
+      # 14. Run Caching Tests
+      - name: Run Caching Tests
+        run: |
+          pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
+
+      # 15. Cleanup Docker Containers and Network
+      - name: Cleanup Docker Containers and Network
+        if: always()
+        run: |
+          echo "Stopping and removing MinIO..."
+          docker stop minio || true
+          docker rm minio || true
+
+          echo "Stopping and removing Dremio..."
+          docker stop dremio || true
+          docker rm dremio || true
+
+          echo "Removing Docker network..."
+          docker network rm ci-network || echo "Docker network ci-network does not exist"
