@@ -71,7 +71,7 @@ jobs:
           echo "Dremio is up. Proceeding with configuration..."
 
           # Log in to Dremio to get the auth token
-          AUTH_TOKEN=$(curl -s -X POST "http://127.0.0.1:9047/apiv2/login" \
+          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
             -H "Content-Type: application/json" \
             --data "{\"userName\":\"dremio", \"password\":\"dremio123"}" | jq -r .token)
 
