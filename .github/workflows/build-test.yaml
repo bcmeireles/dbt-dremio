@@ -13,9 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Check out the repository
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
+      # 2. Set up Environment Variables
       - name: Set up Environment Variables
         run: |
           echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
@@ -27,10 +29,12 @@ jobs:
           echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
           echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
 
+      # 3. Create Docker Network
       - name: Create Docker Network
         run: |
           docker network create ci-network
 
+      # 4. Start MinIO Service
       - name: Start MinIO Service
         run: |
           docker run -d \
@@ -42,6 +46,7 @@ jobs:
             -e "MINIO_ROOT_PASSWORD=password" \
             minio/minio server /data --console-address ":9001"
 
+      # 5. Start Dremio Service
       - name: Start Dremio Service
         run: |
           docker run -d \
@@ -52,12 +57,14 @@ jobs:
             -e "DREMIO_JAVA_SERVER_EXTRA_OPTS=-Ddebug.addDefaultUser=true" \
             dremio/dremio-oss
 
+      # 6. Install MinIO Client (mc)
       - name: Install MinIO Client (mc)
         run: |
           curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x mc
           sudo mv mc /usr/local/bin/
 
+      # 7. Create MinIO bucket
       - name: Create MinIO bucket
         run: |
           for i in {1..12}; do
@@ -85,7 +92,8 @@ jobs:
           echo "Listing all buckets to verify"
           mc ls myminio
 
-      - name: "Create Dremio S3 Source"
+      # 8. Create Dremio S3 Source
+      - name: Create Dremio S3 Source
         run: |
           sudo apt-get update
           sudo apt-get install -y curl jq
@@ -124,30 +132,42 @@ jobs:
 
           echo "S3 Source created in Dremio"
 
+      # 9. Install Dependencies
       - name: Install Dependencies
         run: |
           pip install -r dev_requirements.txt
           pip install .
 
+      # 10. Create dbt test users
       - name: Create dbt test users
         run: |
-          curl 'http://localhost:9047/api/v3/user' \
-          -H "Authorization: _dremio$AUTH_TOKEN" \
-          -H 'Content-Type: application/json' \
-          --data-raw '{"firstName":"dbt","lastName":"user1","name":"dbt_test_user_1","email":"dbt_test_user_1@dremio.com","password":"dremio123"}'
+          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
+            -H "Content-Type: application/json" \
+            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
+
+          if [ -z "$AUTH_TOKEN" ]; then
+            echo "Failed to obtain Dremio auth token"
+            exit 1
+          fi
 
           curl 'http://localhost:9047/api/v3/user' \
-          -H "Authorization: _dremio$AUTH_TOKEN" \
-          -H 'Content-Type: application/json' \
-          --data-raw '{"firstName":"dbt","lastName":"user2","name":"dbt_test_user_2","email":"dbt_test_user_2@dremio.com","password":"dremio123"}'
+            -H "Authorization: _dremio$AUTH_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data-raw '{"firstName":"dbt","lastName":"user1","name":"dbt_test_user_1","email":"dbt_test_user_1@dremio.com","password":"dremio123"}'
 
           curl 'http://localhost:9047/api/v3/user' \
-          -H "Authorization: _dremio$AUTH_TOKEN" \
-          -H 'Content-Type: application/json' \
-          --data-raw '{"firstName":"dbt","lastName":"user3","name":"dbt_test_user_3","email":"dbt_test_user_3@dremio.com","password":"dremio123"}'
+            -H "Authorization: _dremio$AUTH_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data-raw '{"firstName":"dbt","lastName":"user2","name":"dbt_test_user_2","email":"dbt_test_user_2@dremio.com","password":"dremio123"}'
 
-          echo "users created"
+          curl 'http://localhost:9047/api/v3/user' \
+            -H "Authorization: _dremio$AUTH_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data-raw '{"firstName":"dbt","lastName":"user3","name":"dbt_test_user_3","email":"dbt_test_user_3@dremio.com","password":"dremio123"}'
 
+          echo "Users created"
+
+      # 11. Create dbt projects
       - name: Create dbt projects
         run: |
           dbt init test_cloud_options <<EOF
@@ -157,10 +177,6 @@ jobs:
 
           dremio
           dremio123
-
-
-
-
 
 
 
@@ -180,10 +196,6 @@ jobs:
 
 
 
-
-
-
-
           EOF
 
           dbt init test_sw_pat_options <<EOF
@@ -198,18 +210,16 @@ jobs:
 
 
 
-
-
-
-
           EOF
 
-          echo "projects created"
+          echo "Projects created"
 
+      # 12. Clean up __pycache__ directories
       - name: Clean up __pycache__ directories
         run: |
           find . -type d -name "__pycache__" -exec rm -r {} +
 
+      # 13. Create .env file for tests
       - name: Create .env file for tests
         run: |
           mkdir -p tests
@@ -224,62 +234,158 @@ jobs:
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
 
+      # 14. Run and Upload Caching Tests
       - name: Run caching tests
         if: always()
         run: |
-          pytest tests/caching/
-      
+          pytest tests/caching/ --junitxml=reports/caching.xml
+
+      - name: Upload caching test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: caching-test-report
+          path: reports/caching.xml
+
+      # 15. Run and Upload Component Tests
       - name: Run component tests
         if: always()
-        run : |
-          pytest tests/component/
+        run: |
+          pytest tests/component/ --junitxml=reports/component.xml
 
+      - name: Upload component test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: component-test-report
+          path: reports/component.xml
+
+      # 16. Run and Upload Functional/Adapter/Basic Tests
       - name: Run functional/adapter/basic tests
         if: always()
         run: |
-          pytest tests/functional/adapter/basic/
-      
+          pytest tests/functional/adapter/basic/ --junitxml=reports/basic.xml
+
+      - name: Upload functional/adapter/basic test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: basic-test-report
+          path: reports/basic.xml
+
+      # 17. Run and Upload Functional/Adapter/dbt_clone Tests
       - name: Run functional/adapter/dbt_clone tests
         if: always()
         run: |
-          pytest tests/functional/adapter/dbt_clone/
-      
+          pytest tests/functional/adapter/dbt_clone/ --junitxml=reports/dbt_clone.xml
+
+      - name: Upload functional/adapter/dbt_clone test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: dbt_clone-test-report
+          path: reports/dbt_clone.xml
+
+      # 18. Run and Upload Functional/Adapter/Dremio_Specific Tests
       - name: Run functional/adapter/dremio_specific tests
         if: always()
         run: |
-          pytest tests/functional/adapter/dremio_specific/
-      
+          pytest tests/functional/adapter/dremio_specific/ --junitxml=reports/dremio_specific.xml
+
+      - name: Upload functional/adapter/dremio_specific test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: dremio_specific-test-report
+          path: reports/dremio_specific.xml
+
+      # 19. Run and Upload Functional/Adapter/Grants Tests
       - name: Run functional/adapter/grants tests
         if: always()
         run: |
-          pytest tests/functional/adapter/grants/
-      
+          pytest tests/functional/adapter/grants/ --junitxml=reports/grants.xml
+
+      - name: Upload functional/adapter/grants test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: grants-test-report
+          path: reports/grants.xml
+
+      # 20. Run and Upload Functional/Adapter/Query_Comment Tests
       - name: Run functional/adapter/query_comment tests
         if: always()
         run: |
-          pytest tests/functional/adapter/query_comment/
+          pytest tests/functional/adapter/query_comment/ --junitxml=reports/query_comment.xml
 
+      - name: Upload functional/adapter/query_comment test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: query_comment-test-report
+          path: reports/query_comment.xml
+
+      # 21. Run and Upload Functional/Adapter/Relation Tests
       - name: Run functional/adapter/relation tests
         if: always()
         run: |
-          pytest tests/functional/adapter/relation/
+          pytest tests/functional/adapter/relation/ --junitxml=reports/relation.xml
 
+      - name: Upload functional/adapter/relation test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: relation-test-report
+          path: reports/relation.xml
+
+      # 22. Run and Upload Functional/Adapter/Unit_Testing Tests
       - name: Run functional/adapter/unit_testing tests
         if: always()
         run: |
-          pytest tests/functional/adapter/unit_testing/
+          pytest tests/functional/adapter/unit_testing/ --junitxml=reports/unit_testing.xml
 
+      - name: Upload functional/adapter/unit_testing test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit_testing-test-report
+          path: reports/unit_testing.xml
+
+      # 23. Run and Upload Hooks Tests
       - name: Run hooks tests
         if: always()
         run: |
-          pytest tests/hooks/
+          pytest tests/hooks/ --junitxml=reports/hooks.xml
 
+      - name: Upload hooks test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: hooks-test-report
+          path: reports/hooks.xml
+
+      # 24. Run and Upload Simple_Copy Tests
       - name: Run simple_copy tests
         if: always()
         run: |
-          pytest tests/simple_copy/
-          
+          pytest tests/simple_copy/ --junitxml=reports/simple_copy.xml
+
+      - name: Upload simple_copy test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: simple_copy-test-report
+          path: reports/simple_copy.xml
+
+      # 25. Run and Upload Unit Tests
       - name: Run unit tests
         if: always()
         run: |
-          pytest tests/unit/
+          pytest tests/unit/ --junitxml=reports/unit.xml
+
+      - name: Upload unit tests report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit-test-report
+          path: reports/unit.xml
