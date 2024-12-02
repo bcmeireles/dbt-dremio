@@ -55,11 +55,10 @@ jobs:
 
       - name: Create MinIO Bucket using mc
         run: |
-          docker run --rm minio/mc /bin/sh -c "
-            mc alias set myminio http://localhost:9000 admin password &&
-            mc mb myminio/dbtdremios3 &&
-            mc ls myminio
-          "
+          docker run --rm minio/ mc alias set myminio http://localhost:9000 admin password
+          docker run --rm minio/mc mb myminio/dbtdremios3
+          docker run --rm minio/mc ls myminio
+
       - name: "Create Dremio S3 Source"
         run: |
           # Install required tools
