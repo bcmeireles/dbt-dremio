@@ -20,7 +20,7 @@ jobs:
       # 2. Set Up Environment Variables
       - name: Set up Environment Variables
         run: |
-          echo "DREMIO_SOFTWARE_HOST=minio" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
