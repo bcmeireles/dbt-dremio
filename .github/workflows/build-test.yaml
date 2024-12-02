@@ -225,6 +225,10 @@ jobs:
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
 
+      - name: Create Reports Directory
+        run: |
+          mkdir -p reports
+
       - name: Run caching tests
         if: always()
         run: |
