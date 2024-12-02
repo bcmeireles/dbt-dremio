@@ -26,7 +26,7 @@ jobs:
           --health-retries 5
 
       minio:
-        image: minio/minio:latest
+        image: minio/minio
         ports:
           - 9000:9000
           - 9001:9001
@@ -65,28 +65,28 @@ jobs:
         run: |
           # Wait for MinIO
           for i in {1..12}; do
-            if curl -s http://minio:9000/minio/health/live; then
+            if curl -s http://localhost:9000/minio/health/live; then
               echo "MinIO is up."
               break
             fi
             echo "Waiting for MinIO to become ready..."
             sleep 5
           done
-          if ! curl -s http://minio:9000/minio/health/live; then
+          if ! curl -s http://localhost:9000/minio/health/live; then
             echo "MinIO did not become ready in time."
             exit 1
           fi
 
           # Wait for Dremio
           for i in {1..12}; do
-            if curl -s http://dremio:9047; then
+            if curl -s http://localhost:9047; then
               echo "Dremio is up."
               break
             fi
             echo "Waiting for Dremio to become ready..."
             sleep 5
           done
-          if ! curl -s http://dremio:9047; then
+          if ! curl -s http://localhost:9047; then
             echo "Dremio did not become ready in time."
             exit 1
           fi
@@ -112,7 +112,7 @@ jobs:
           sudo apt-get install -y curl jq
 
           echo "Logging into Dremio to obtain auth token..."
-          AUTH_TOKEN=$(curl -s -X POST "http://dremio:9047/apiv2/login" \
+          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
             -H "Content-Type: application/json" \
             --data "{\"userName\":\"dremio\", \"password\":\"password\"}" | jq -r .token)
 
@@ -123,10 +123,9 @@ jobs:
           fi
 
           echo "Obtained Dremio auth token: $AUTH_TOKEN"
-          echo "$AUTH_TOKEN"
 
           echo "Creating the S3 source in Dremio..."
-          curl -s -X PUT "http://dremio:9047/apiv2/source/dbt_test_source" \
+          curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
             -H "Content-Type: application/json" \
             -H "Authorization: _dremio$AUTH_TOKEN" \
             --data "{\"name\":\"dbt_test_source\",\"config\":{\"credentialType\":\"ACCESS_KEY\",\"accessKey\":\"admin\",\"accessSecret\":\"password\",\"secure\":false,\"externalBucketList\":[],\"enableAsync\":true,\"enableFileStatusCheck\":true,\"rootPath\":\"/\",\"defaultCtasFormat\":\"ICEBERG\",\"propertyList\":[{\"name\":\"fs.s3a.path.style.access\",\"value\":\"true\"},{\"name\":\"fs.s3a.endpoint\",\"value\":\"minio:9000\"},{\"name\":\"dremio.s3.compat\",\"value\":\"true\"}],\"whitelistedBuckets\":[],\"isCachingEnabled\":false,\"maxCacheSpacePct\":100},\"type\":\"S3\",\"metadataPolicy\":{\"deleteUnavailableDatasets\":true,\"autoPromoteDatasets\":false,\"namesRefreshMillis\":3600000,\"datasetDefinitionRefreshAfterMillis\":3600000,\"datasetDefinitionExpireAfterMillis\":10800000,\"authTTLMillis\":86400000,\"updateMode\":\"PREFETCH_QUERIED\"}}"
