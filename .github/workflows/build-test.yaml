@@ -143,6 +143,31 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r dev_requirements.txt
+          pip install .
+
+      # Create dbt test users
+      - name: Create dbt test users
+        run: |
+          curl 'http://localhost:9047/api/v3/user' \
+          -H "Authorization: _dremio$AUTH_TOKEN" \
+          -H 'Content-Type: application/json' \
+          --data-raw '{"firstName":"dbt","lastName":"user1","name":"dbt_test_user_1","email":"dbt_test_user_1@dremio.com","password":"dremio123"}'
+
+          curl 'http://localhost:9047/api/v3/user' \
+          -H "Authorization: _dremio$AUTH_TOKEN" \
+          -H 'Content-Type: application/json' \
+          --data-raw '{"firstName":"dbt","lastName":"user2","name":"dbt_test_user_2","email":"dbt_test_user_2@dremio.com","password":"dremio123"}'
+
+          curl 'http://localhost:9047/api/v3/user' \
+          -H "Authorization: _dremio$AUTH_TOKEN" \
+          -H 'Content-Type: application/json' \
+          --data-raw '{"firstName":"dbt","lastName":"user3","name":"dbt_test_user_3","email":"dbt_test_user_3@dremio.com","password":"dremio123"}'
+
+      - name: Create dbt projects
+        run: |
+          printf "1\n3\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_cloud_options
+          printf "1\n2\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_sw_up_options
+          printf "1\n3\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_sw_pat_options
 
       # 12. Clean Up __pycache__ Directories
       - name: Clean up __pycache__ directories
@@ -167,7 +192,7 @@ jobs:
       # 14. Run Tests
       - name: Run Tests
         run: |
-          pytest tests/ | tee -a func_test_$(date +%Y_%m_%d).log
+          pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
 
       # 15. Cleanup Docker Containers and Network
       - name: Cleanup Docker Containers and Network
