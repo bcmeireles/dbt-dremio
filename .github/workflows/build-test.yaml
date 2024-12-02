@@ -30,7 +30,8 @@ jobs:
           MINIO_DOMAIN: storage
           MINIO_REGION_NAME: us-east-1
           MINIO_REGION: us-east-1
-        options: --entrypoint "server /data --console-address :9001"
+        options: >-
+            server /data --console-address :9001
 
     steps:
       - name: Check out repository
