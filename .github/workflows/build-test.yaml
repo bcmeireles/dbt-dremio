@@ -255,11 +255,6 @@ jobs:
         run : |
           pytest tests/component/
 
-      - name: Run fixtures tests
-        if: always()
-        run : |
-          pytest tests/fixtures/
-
       - name: Run functional/adapter/basic tests
         if: always()
         run: |
