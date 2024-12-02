@@ -167,9 +167,23 @@ jobs:
 
       - name: Create dbt projects
         run: |
-          printf "1\n3\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_cloud_options
-          printf "1\n2\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_sw_up_options
-          printf "1\n3\nlocalhost\n\ndremio\ndremio123\n\n\n\n\n\n" | dbt init test_sw_pat_options
+          dbt init test_cloud_options <<EOF
+          1
+          3
+          localhost
+
+          dremio
+          dremio123
+
+
+
+
+
+
+
+
+
+          EOF
 
           echo "projects created"
 
