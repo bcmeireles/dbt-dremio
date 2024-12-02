@@ -57,7 +57,7 @@ jobs:
         run: aws --endpoint-url http://127.0.0.1:9000 s3 mb s3://dbtdremios3
 
       - name: Free up space
-        run: pip uninstall awscli
+        run: pip uninstall awscli -y
 
       - name: "Create Dremio S3 Source"
         run: |
