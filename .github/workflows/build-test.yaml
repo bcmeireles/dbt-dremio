@@ -12,87 +12,107 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     services:
+      # Dremio Service
       dremio:
-        image: dremio/dremio-oss
+        image: dremio/dremio-oss:latest
         ports:
           - 31010:31010
           - 9047:9047
         env:
           DREMIO_JAVA_SERVER_EXTRA_OPTS: -Ddebug.addDefaultUser=true
+        options: >-
+          --health-cmd "curl -f http://localhost:9047 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      # MinIO Service
+      minio:
+        image: minio/minio:latest
+        ports:
+          - 9000:9000
+          - 9001:9001
+        env:
+          MINIO_ROOT_USER: admin
+          MINIO_ROOT_PASSWORD: password
+          MINIO_REGION_NAME: us-east-1
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          server /data --console-address ":9001"
+
+    env:
+      DREMIO_SOFTWARE_HOST: 127.0.0.1
+      DREMIO_SOFTWARE_USERNAME: dremio
+      DREMIO_SOFTWARE_PASSWORD: dremio123
+      DREMIO_DATALAKE: dbt_test_source
+      DREMIO_DATABASE: dbt_test
+      DBT_TEST_USER_1: dbt_test_user_1
+      DBT_TEST_USER_2: dbt_test_user_2
+      DBT_TEST_USER_3: dbt_test_user_3
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_DEFAULT_REGION: us-east-1
+
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
-
-      - name: Set up Dremio environment
-        run: |
-          echo "DREMIO_SOFTWARE_HOST=127.0.0.1" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
-          echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
-          echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
-          echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
+        uses: actions/checkout@v3
 
       - name: Install AWS CLI
         run: pip install awscli
 
-      - name: Start MinIO Service
+      - name: Wait for MinIO to be ready
         run: |
-          docker run -d \
-            -p 9000:9000 \
-            -p 9001:9001 \
-            -e "MINIO_ROOT_USER=admin" \
-            -e "MINIO_ROOT_PASSWORD=password" \
-            --name minio \
-            minio/minio server /data --console-address ":9001"
-
-      - name: Configure AWS credentials for MinIO
-        run: |
-          echo "AWS_ACCESS_KEY_ID=admin" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=password" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
-
-      - name: Create MinIO bucket
-        run: aws --endpoint-url http://127.0.0.1:9000 s3 mb s3://dbtdremios3
-
-      - name: "Create Dremio S3 Source"
-        run: |
-          # Install required tools
-          sudo apt-get update
-          sudo apt-get install -y curl jq
-
-          # Wait for Dremio to be ready
-          until curl -s http://127.0.0.1:9047; do
-            echo "Waiting for Dremio..."
+          echo "Waiting for MinIO to be ready..."
+          until curl -s http://localhost:9000/minio/health/live; do
+            echo "MinIO is not ready yet. Waiting..."
             sleep 5
           done
+          echo "MinIO is up and running."
 
-          echo "Dremio is up. Proceeding with configuration..."
+      - name: Create MinIO bucket
+        run: aws --endpoint-url http://localhost:9000 s3 mb s3://dbtdremios3
+
+      - name: Wait for Dremio to be ready
+        run: |
+          echo "Waiting for Dremio to be ready..."
+          until curl -s http://localhost:9047; do
+            echo "Dremio is not ready yet. Waiting..."
+            sleep 5
+          done
+          echo "Dremio is up and running."
+
+      - name: Install required tools
+        run: sudo apt-get update && sudo apt-get install -y curl jq
+
+      - name: Create Dremio S3 Source
+        run: |
+          echo "Configuring Dremio S3 Source..."
 
           # Log in to Dremio to get the auth token
-          AUTH_TOKEN=$(curl -s -X POST "http://127.0.0.1:9047/apiv2/login" \
+          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
             -H "Content-Type: application/json" \
-            --data "{\"userName\":\"dremio", \"password\":\"dremio123"}" | jq -r .token)
+            --data "{\"userName\":\"${{ env.DREMIO_SOFTWARE_USERNAME }}\", \"password\":\"${{ env.DREMIO_SOFTWARE_PASSWORD }}\"}" | jq -r .token)
 
-          # Check if AUTH_TOKEN is not empty
           if [ -z "$AUTH_TOKEN" ]; then
             echo "Failed to obtain Dremio auth token"
             exit 1
           fi
 
-          echo "Obtained Dremio auth token"
+          echo "Obtained Dremio auth token: $AUTH_TOKEN"
 
           # Create the S3 source in Dremio
-          curl -s -X PUT "http://127.0.0.1:9047/apiv2/source/dbt_test_source" \
+          curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
             -H "Content-Type: application/json" \
             -H "Authorization: _dremio$AUTH_TOKEN" \
             --data '{
               "name": "dbt_test_source",
               "config": {
                 "credentialType": "ACCESS_KEY",
-                "accessKey": "admin",
-                "accessSecret": "password",
+                "accessKey": "'"${{ env.AWS_ACCESS_KEY_ID }}"'",
+                "accessSecret": "'"${{ env.AWS_SECRET_ACCESS_KEY }}"'",
                 "secure": false,
                 "externalBucketList": [],
                 "enableAsync": true,
@@ -101,7 +121,7 @@ jobs:
                 "defaultCtasFormat": "ICEBERG",
                 "propertyList": [
                   {"name": "fs.s3a.path.style.access", "value": "true"},
-                  {"name": "fs.s3a.endpoint", "value": "minio:9000"},
+                  {"name": "fs.s3a.endpoint", "value": "http://minio:9000"},
                   {"name": "dremio.s3.compat", "value": "true"}
                 ],
                 "whitelistedBuckets": [],
@@ -120,34 +140,34 @@ jobs:
               }
             }'
 
-          echo "S3 Source created in Dremio"
+          echo "S3 Source created in Dremio."
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r dev_requirements.txt
 
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
-      
+
       - name: Create .env file for tests
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
-          DREMIO_SOFTWARE_HOST=127.0.0.1
-          DREMIO_SOFTWARE_USERNAME=dremio
-          DREMIO_SOFTWARE_PASSWORD=dremio123
-          DREMIO_DATALAKE=dbt_test_source
-          DREMIO_DATABASE=dbt_test
-          DBT_TEST_USER_1=dbt_test_user_1
-          DBT_TEST_USER_2=dbt_test_user_2
-          DBT_TEST_USER_3=dbt_test_user_3
+          DREMIO_SOFTWARE_HOST=${{ env.DREMIO_SOFTWARE_HOST }}
+          DREMIO_SOFTWARE_USERNAME=${{ env.DREMIO_SOFTWARE_USERNAME }}
+          DREMIO_SOFTWARE_PASSWORD=${{ env.DREMIO_SOFTWARE_PASSWORD }}
+          DREMIO_DATALAKE=${{ env.DREMIO_DATALAKE }}
+          DREMIO_DATABASE=${{ env.DREMIO_DATABASE }}
+          DBT_TEST_USER_1=${{ env.DBT_TEST_USER_1 }}
+          DBT_TEST_USER_2=${{ env.DBT_TEST_USER_2 }}
+          DBT_TEST_USER_3=${{ env.DBT_TEST_USER_3 }}
           EOF
-          pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
 
       - name: Run Caching tests
         run: |
