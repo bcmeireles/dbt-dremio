@@ -9,15 +9,13 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout Repository
       - name: Check out repository
         uses: actions/checkout@v2
 
-      # 2. Set Up Environment Variables
       - name: Set up Environment Variables
         run: |
           echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
@@ -29,12 +27,10 @@ jobs:
           echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
           echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
 
-      # 3. Create Docker Network
       - name: Create Docker Network
         run: |
           docker network create ci-network
 
-      # 4. Start MinIO Service
       - name: Start MinIO Service
         run: |
           docker run -d \
@@ -46,7 +42,6 @@ jobs:
             -e "MINIO_ROOT_PASSWORD=password" \
             minio/minio server /data --console-address ":9001"
 
-      # 5. Start Dremio Service
       - name: Start Dremio Service
         run: |
           docker run -d \
@@ -57,8 +52,13 @@ jobs:
             -e "DREMIO_JAVA_SERVER_EXTRA_OPTS=-Ddebug.addDefaultUser=true" \
             dremio/dremio-oss
 
-      # 6. Wait for MinIO to be Ready
-      - name: Wait for MinIO to be ready
+      - name: Install MinIO Client (mc)
+        run: |
+          curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x mc
+          sudo mv mc /usr/local/bin/
+
+      - name: Create MinIO bucket
         run: |
           for i in {1..12}; do
             if docker exec minio curl -s http://localhost:9000/minio/health/live; then
@@ -73,32 +73,6 @@ jobs:
             exit 1
           fi
 
-      # 7. Wait for Dremio to be Ready
-      - name: Wait for Dremio to be ready
-        run: |
-          for i in {1..12}; do
-            if docker exec dremio curl -s http://localhost:9047; then
-              echo "Dremio is up."
-              break
-            fi
-            echo "Waiting for Dremio to become ready..."
-            sleep 5
-          done
-          if ! docker exec dremio curl -s http://localhost:9047; then
-            echo "Dremio did not become ready in time."
-            exit 1
-          fi
-
-      # 8. Install MinIO Client (mc)
-      - name: Install MinIO Client (mc)
-        run: |
-          curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
-          chmod +x mc
-          sudo mv mc /usr/local/bin/
-
-      # 9. Configure MinIO using mc
-      - name: Configure MinIO using mc
-        run: |
           # Set alias to MinIO
           mc alias set myminio http://localhost:9000 admin password
 
@@ -111,12 +85,23 @@ jobs:
           echo "Listing all buckets to verify"
           mc ls myminio
 
-      # 10. Create Dremio S3 Source
       - name: "Create Dremio S3 Source"
         run: |
-          # Install required tools
           sudo apt-get update
           sudo apt-get install -y curl jq
+
+          for i in {1..12}; do
+            if docker exec dremio curl -s http://localhost:9047; then
+              echo "Dremio is up."
+              break
+            fi
+            echo "Waiting for Dremio to become ready..."
+            sleep 5
+          done
+          if ! docker exec dremio curl -s http://localhost:9047; then
+            echo "Dremio did not become ready in time."
+            exit 1
+          fi
 
           echo "Logging into Dremio to obtain auth token..."
           AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
@@ -139,13 +124,11 @@ jobs:
 
           echo "S3 Source created in Dremio"
 
-      # 11. Install Python Dependencies
       - name: Install Dependencies
         run: |
           pip install -r dev_requirements.txt
           pip install .
 
-      # Create dbt test users
       - name: Create dbt test users
         run: |
           curl 'http://localhost:9047/api/v3/user' \
@@ -223,14 +206,11 @@ jobs:
 
           echo "projects created"
 
-      # 12. Clean Up __pycache__ Directories
       - name: Clean up __pycache__ directories
         run: |
           find . -type d -name "__pycache__" -exec rm -r {} +
 
-      # 13. Create .env File for Tests
       - name: Create .env file for tests
-        if: always()
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
@@ -244,7 +224,6 @@ jobs:
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
 
-      # 14. Run Tests
       - name: Run caching tests
         if: always()
         run: |
@@ -304,18 +283,3 @@ jobs:
         if: always()
         run: |
           pytest tests/unit/
-
-      # 15. Cleanup Docker Containers and Network
-      - name: Cleanup Docker Containers and Network
-        if: always()
-        run: |
-          echo "Stopping and removing MinIO..."
-          docker stop minio || true
-          docker rm minio || true
-
-          echo "Stopping and removing Dremio..."
-          docker stop dremio || true
-          docker rm dremio || true
-
-          echo "Removing Docker network..."
-          docker network rm ci-network || echo "Docker network ci-network does not exist"
