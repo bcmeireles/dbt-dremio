@@ -55,7 +55,7 @@ jobs:
 
       - name: Create MinIO Bucket using mc
         run: |
-          docker run --rm minio/mc sh -c "
+          docker run --rm minio/mc /bin/sh -c "
             mc alias set myminio http://localhost:9000 admin password &&
             mc mb myminio/dbtdremios3 &&
             mc ls myminio
