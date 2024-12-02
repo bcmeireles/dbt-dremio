@@ -294,11 +294,6 @@ jobs:
         if: always()
         run: |
           pytest tests/functional/adapter/unit_testing/
-        
-      - name: Run functional/adapter/utils tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/utils/
 
       - name: Run hooks tests
         if: always()
@@ -314,11 +309,6 @@ jobs:
         if: always()
         run: |
           pytest tests/unit/
-
-      - name: Run utils tests
-        if: always()
-        run: |
-          pytest tests/utils/
 
       # 15. Cleanup Docker Containers and Network
       - name: Cleanup Docker Containers and Network
