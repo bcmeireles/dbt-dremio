@@ -11,6 +11,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
     services:
       dremio:
         image: dremio/dremio-oss
@@ -41,12 +42,14 @@ jobs:
           --health-retries 5
 
     steps:
+      # 1. Checkout Repository
       - name: Check out repository
         uses: actions/checkout@v2
 
+      # 2. Set Up Environment Variables
       - name: Set up Environment Variables
         run: |
-          echo "DREMIO_SOFTWARE_HOST=dremio" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_HOST=localhost" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
@@ -55,46 +58,45 @@ jobs:
           echo "DBT_TEST_USER_2=dbt_test_user_2" >> $GITHUB_ENV
           echo "DBT_TEST_USER_3=dbt_test_user_3" >> $GITHUB_ENV
 
+      # 3. Install MinIO Client (mc)
       - name: Install MinIO Client (mc)
         run: |
           curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x mc
           sudo mv mc /usr/local/bin/
 
+      # 4. Wait for Services to be Ready
       - name: Wait for Services to be Ready
         run: |
+          # Function to wait for a URL to be accessible
+          wait_for_url() {
+            local url=$1
+            local name=$2
+            local retries=12
+            local count=0
+            until curl -s "$url" > /dev/null; do
+              count=$((count + 1))
+              if [ $count -ge $retries ]; then
+                echo "$name did not become ready in time."
+                exit 1
+              fi
+              echo "Waiting for $name to become ready..."
+              sleep 5
+            done
+            echo "$name is up."
+          }
+
           # Wait for MinIO
-          for i in {1..12}; do
-            if curl -s http://localhost:9000/minio/health/live; then
-              echo "MinIO is up."
-              break
-            fi
-            echo "Waiting for MinIO to become ready..."
-            sleep 5
-          done
-          if ! curl -s http://localhost:9000/minio/health/live; then
-            echo "MinIO did not become ready in time."
-            exit 1
-          fi
+          wait_for_url "http://localhost:9000/minio/health/live" "MinIO"
 
           # Wait for Dremio
-          for i in {1..12}; do
-            if curl -s http://localhost:9047; then
-              echo "Dremio is up."
-              break
-            fi
-            echo "Waiting for Dremio to become ready..."
-            sleep 5
-          done
-          if ! curl -s http://localhost:9047; then
-            echo "Dremio did not become ready in time."
-            exit 1
-          fi
+          wait_for_url "http://localhost:9047" "Dremio"
 
+      # 5. Configure MinIO Using mc
       - name: Configure MinIO using mc
         run: |
           # Set alias to MinIO
-          mc alias set myminio http://minio:9000 admin password
+          mc alias set myminio http://localhost:9000 admin password
 
           echo "Creating bucket dbtdremios3"
           mc mb myminio/dbtdremios3
@@ -105,6 +107,7 @@ jobs:
           echo "Listing all buckets to verify"
           mc ls myminio
 
+      # 6. Create Dremio S3 Source
       - name: "Create Dremio S3 Source"
         run: |
           # Install required tools
@@ -114,7 +117,7 @@ jobs:
           echo "Logging into Dremio to obtain auth token..."
           AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
             -H "Content-Type: application/json" \
-            --data "{\"userName\":\"dremio\", \"password\":\"password\"}" | jq -r .token)
+            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
 
           # Check if AUTH_TOKEN is not empty
           if [ -z "$AUTH_TOKEN" ]; then
@@ -128,24 +131,28 @@ jobs:
           curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
             -H "Content-Type: application/json" \
             -H "Authorization: _dremio$AUTH_TOKEN" \
-            --data "{\"name\":\"dbt_test_source\",\"config\":{\"credentialType\":\"ACCESS_KEY\",\"accessKey\":\"admin\",\"accessSecret\":\"password\",\"secure\":false,\"externalBucketList\":[],\"enableAsync\":true,\"enableFileStatusCheck\":true,\"rootPath\":\"/\",\"defaultCtasFormat\":\"ICEBERG\",\"propertyList\":[{\"name\":\"fs.s3a.path.style.access\",\"value\":\"true\"},{\"name\":\"fs.s3a.endpoint\",\"value\":\"minio:9000\"},{\"name\":\"dremio.s3.compat\",\"value\":\"true\"}],\"whitelistedBuckets\":[],\"isCachingEnabled\":false,\"maxCacheSpacePct\":100},\"type\":\"S3\",\"metadataPolicy\":{\"deleteUnavailableDatasets\":true,\"autoPromoteDatasets\":false,\"namesRefreshMillis\":3600000,\"datasetDefinitionRefreshAfterMillis\":3600000,\"datasetDefinitionExpireAfterMillis\":10800000,\"authTTLMillis\":86400000,\"updateMode\":\"PREFETCH_QUERIED\"}}"
+            --data "{\"name\":\"dbt_test_source\",\"config\":{\"credentialType\":\"ACCESS_KEY\",\"accessKey\":\"admin\",\"accessSecret\":\"password\",\"secure\":false,\"externalBucketList\":[],\"enableAsync\":true,\"enableFileStatusCheck\":true,\"rootPath\":\"/\",\"defaultCtasFormat\":\"ICEBERG\",\"propertyList\":[{\"name\":\"fs.s3a.path.style.access\",\"value\":\"true\"},{\"name\":\"fs.s3a.endpoint\",\"value\":\"localhost:9000\"},{\"name\":\"dremio.s3.compat\",\"value\":\"true\"}],\"whitelistedBuckets\":[],\"isCachingEnabled\":false,\"maxCacheSpacePct\":100},\"type\":\"S3\",\"metadataPolicy\":{\"deleteUnavailableDatasets\":true,\"autoPromoteDatasets\":false,\"namesRefreshMillis\":3600000,\"datasetDefinitionRefreshAfterMillis\":3600000,\"datasetDefinitionExpireAfterMillis\":10800000,\"authTTLMillis\":86400000,\"updateMode\":\"PREFETCH_QUERIED\"}}"
 
           echo "S3 Source created in Dremio"
 
+      # 7. Install Python Dependencies
       - name: Install Dependencies
         run: |
           pip install -r dev_requirements.txt
 
-      - name: Clean up __pycache__ Directories
-        run: find . -type d -name "__pycache__" -exec rm -r {} +
+      # 8. Clean Up __pycache__ Directories
+      - name: Clean up __pycache__ directories
+        run: |
+          find . -type d -name "__pycache__" -exec rm -r {} +
 
-      - name: Create .env File for Tests
+      # 9. Create .env File for Tests
+      - name: Create .env file for tests
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
           DREMIO_SOFTWARE_HOST=localhost
           DREMIO_SOFTWARE_USERNAME=dremio
-          DREMIO_SOFTWARE_PASSWORD=password
+          DREMIO_SOFTWARE_PASSWORD=dremio123
           DREMIO_DATALAKE=dbt_test_source
           DREMIO_DATABASE=dbt_test
           DBT_TEST_USER_1=dbt_test_user_1
@@ -153,12 +160,7 @@ jobs:
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
 
-      - name: Run Caching Tests
+      # 10. Run Caching Tests
+      - name: Run Caching tests
         run: |
           pytest tests/caching | tee -a func_test_$(date +%Y_%m_%d).log
-
-      - name: Cleanup Services
-        if: always()
-        run: |
-          echo "Cleaning up services..."
-          # No manual cleanup needed as services are managed by GitHub Actions
