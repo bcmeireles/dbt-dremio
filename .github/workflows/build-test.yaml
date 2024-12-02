@@ -9,9 +9,11 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
-
+    outputs:
+      auth_token: ${{ steps.get_auth_token.outputs.auth_token }}
+    
     steps:
       # 1. Checkout Repository
       - name: Check out repository
@@ -96,10 +98,48 @@ jobs:
           chmod +x mc
           sudo mv mc /usr/local/bin/
 
-      # 9. Configure MinIO using mc
+      # 9. Get Dremio Auth Token (to pass to setup job)
+      - name: Get Dremio Auth Token
+        id: get_auth_token
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
+            -H "Content-Type: application/json" \
+            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
+
+          if [ -z "$AUTH_TOKEN" ]; then
+            echo "Failed to obtain Dremio auth token"
+            exit 1
+          fi
+
+          echo "auth_token=$AUTH_TOKEN" >> $GITHUB_OUTPUT
+
+  setup:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      DREMIO_SOFTWARE_HOST: localhost
+      DREMIO_SOFTWARE_USERNAME: dremio
+      DREMIO_SOFTWARE_PASSWORD: dremio123
+      DREMIO_DATALAKE: dbt_test_source
+      DREMIO_DATABASE: dbt_test
+      DBT_TEST_USER_1: dbt_test_user_1
+      DBT_TEST_USER_2: dbt_test_user_2
+      DBT_TEST_USER_3: dbt_test_user_3
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Install MinIO Client (mc)
+        run: |
+          curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x mc
+          sudo mv mc /usr/local/bin/
+
       - name: Configure MinIO using mc
         run: |
-          # Set alias to MinIO
           mc alias set myminio http://localhost:9000 admin password
 
           echo "Creating bucket dbtdremios3"
@@ -111,27 +151,10 @@ jobs:
           echo "Listing all buckets to verify"
           mc ls myminio
 
-      # 10. Create Dremio S3 Source
-      - name: "Create Dremio S3 Source"
+      - name: Create Dremio S3 Source
         run: |
-          # Install required tools
-          sudo apt-get update
-          sudo apt-get install -y curl jq
+          AUTH_TOKEN=${{ needs.build.outputs.auth_token }}
 
-          echo "Logging into Dremio to obtain auth token..."
-          AUTH_TOKEN=$(curl -s -X POST "http://localhost:9047/apiv2/login" \
-            -H "Content-Type: application/json" \
-            --data "{\"userName\":\"dremio\", \"password\":\"dremio123\"}" | jq -r .token)
-
-          # Check if AUTH_TOKEN is not empty
-          if [ -z "$AUTH_TOKEN" ]; then
-            echo "Failed to obtain Dremio auth token"
-            exit 1
-          fi
-
-          echo "Obtained Dremio auth token: $AUTH_TOKEN"
-
-          echo "Creating the S3 source in Dremio..."
           curl -s -X PUT "http://localhost:9047/apiv2/source/dbt_test_source" \
             -H "Content-Type: application/json" \
             -H "Authorization: _dremio$AUTH_TOKEN" \
@@ -139,15 +162,15 @@ jobs:
 
           echo "S3 Source created in Dremio"
 
-      # 11. Install Python Dependencies
       - name: Install Dependencies
         run: |
           pip install -r dev_requirements.txt
           pip install .
 
-      # Create dbt test users
       - name: Create dbt test users
         run: |
+          AUTH_TOKEN=${{ needs.build.outputs.auth_token }}
+
           curl 'http://localhost:9047/api/v3/user' \
           -H "Authorization: _dremio$AUTH_TOKEN" \
           -H 'Content-Type: application/json' \
@@ -175,7 +198,7 @@ jobs:
           dremio
           dremio123
 
-
+          
 
 
 
@@ -193,7 +216,7 @@ jobs:
           dremio
           dremio123
 
-
+          
 
 
 
@@ -211,7 +234,7 @@ jobs:
           dremio
           dremio123
 
-
+          
 
 
 
@@ -223,14 +246,11 @@ jobs:
 
           echo "projects created"
 
-      # 12. Clean Up __pycache__ Directories
       - name: Clean up __pycache__ directories
         run: |
           find . -type d -name "__pycache__" -exec rm -r {} +
 
-      # 13. Create .env File for Tests
       - name: Create .env file for tests
-        if: always()
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
@@ -244,70 +264,74 @@ jobs:
           DBT_TEST_USER_3=dbt_test_user_3
           EOF
 
-      # 14. Run Tests
+  test:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Install Dependencies
+        run: |
+          pip install -r dev_requirements.txt
+          pip install .
+
       - name: Run caching tests
-        if: always()
         run: |
           pytest tests/caching/
-      
+
       - name: Run component tests
-        if: always()
-        run : |
+        run: |
           pytest tests/component/
 
       - name: Run functional/adapter/basic tests
-        if: always()
         run: |
           pytest tests/functional/adapter/basic/
-      
+
       - name: Run functional/adapter/dbt_clone tests
-        if: always()
         run: |
           pytest tests/functional/adapter/dbt_clone/
-      
+
       - name: Run functional/adapter/dremio_specific tests
-        if: always()
         run: |
           pytest tests/functional/adapter/dremio_specific/
-      
+
       - name: Run functional/adapter/grants tests
-        if: always()
         run: |
           pytest tests/functional/adapter/grants/
-      
+
       - name: Run functional/adapter/query_comment tests
-        if: always()
         run: |
           pytest tests/functional/adapter/query_comment/
 
       - name: Run functional/adapter/relation tests
-        if: always()
         run: |
           pytest tests/functional/adapter/relation/
 
       - name: Run functional/adapter/unit_testing tests
-        if: always()
         run: |
           pytest tests/functional/adapter/unit_testing/
 
       - name: Run hooks tests
-        if: always()
         run: |
           pytest tests/hooks/
 
       - name: Run simple_copy tests
-        if: always()
         run: |
           pytest tests/simple_copy/
-          
+
       - name: Run unit tests
-        if: always()
         run: |
           pytest tests/unit/
 
-      # 15. Cleanup Docker Containers and Network
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
       - name: Cleanup Docker Containers and Network
-        if: always()
         run: |
           echo "Stopping and removing MinIO..."
           docker stop minio || true
