@@ -298,7 +298,7 @@ jobs:
       - name: Run functional/adapter/utils tests
         if: always()
         run: |
-          pytest tests/functional/adapters/utils/
+          pytest tests/functional/adapter/utils/
 
       - name: Run hooks tests
         if: always()
@@ -308,7 +308,7 @@ jobs:
       - name: Run simple_copy tests
         if: always()
         run: |
-          pytest tests/simples_copy/
+          pytest tests/simple_copy/
           
       - name: Run unit tests
         if: always()
