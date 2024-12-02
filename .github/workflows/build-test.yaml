@@ -232,62 +232,62 @@ jobs:
       - name: Run caching tests
         if: always()
         run: |
-          pytest tests/caching/ > reports/caching.txt
+          pytest tests/caching/ | tee reports/caching.txt
       
       - name: Run component tests
         if: always()
         run : |
-          pytest tests/component/ > reports/component.txt
+          pytest tests/component/ | tee reports/component.txt
 
       - name: Run functional/adapter/basic tests
         if: always()
         run: |
-          pytest tests/functional/adapter/basic/ > reports/basic.txt
+          pytest tests/functional/adapter/basic/ | tee reports/basic.txt
 
       - name: Run functional/adapter/dbt_clone tests
         if: always()
         run: |
-          pytest tests/functional/adapter/dbt_clone/ > reports/dbt_clone.txt
+          pytest tests/functional/adapter/dbt_clone/ | tee reports/dbt_clone.txt
 
       - name: Run functional/adapter/dremio_specific tests
         if: always()
         run: |
-          pytest tests/functional/adapter/dremio_specific/ > reports/dremio_specific.txt     
+          pytest tests/functional/adapter/dremio_specific/ | tee reports/dremio_specific.txt     
 
       - name: Run functional/adapter/grants tests
         if: always()
         run: |
-          pytest tests/functional/adapter/grants/ > reports/grants.txt      
+          pytest tests/functional/adapter/grants/ | tee reports/grants.txt      
 
       - name: Run functional/adapter/query_comment tests
         if: always()
         run: |
-          pytest tests/functional/adapter/query_comment/ > reports/query_comment.txt
+          pytest tests/functional/adapter/query_comment/ | tee reports/query_comment.txt
           
       - name: Run functional/adapter/relation tests
         if: always()
         run: |
-          pytest tests/functional/adapter/relation/ > reports/relation.txt
+          pytest tests/functional/adapter/relation/ | tee reports/relation.txt
           
       - name: Run functional/adapter/unit_testing tests
         if: always()
         run: |
-          pytest tests/functional/adapter/unit_testing/ > reports/unit_testing.txt
+          pytest tests/functional/adapter/unit_testing/ | tee reports/unit_testing.txt
 
       - name: Run hooks tests
         if: always()
         run: |
-          pytest tests/hooks/ > reports/hooks.txt
+          pytest tests/hooks/ | tee reports/hooks.txt
 
       - name: Run simple_copy tests
         if: always()
         run: |
-          pytest tests/simple_copy/ > reports/simple_copy.txt
+          pytest tests/simple_copy/ | tee reports/simple_copy.txt
 
       - name: Run unit tests
         if: always()
         run: |
-          pytest tests/unit/ > reports/unit.txt
+          pytest tests/unit/ | tee reports/unit.txt
   
   upload-artifacts:
     name: Upload tests artifacts
