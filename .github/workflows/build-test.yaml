@@ -19,33 +19,6 @@ jobs:
           - 9047:9047
         env:
           DREMIO_JAVA_SERVER_EXTRA_OPTS: -Ddebug.addDefaultUser=true
-      minio:
-        image: minio/minio:latest
-        ports:
-          - 9000:9000
-          - 9001:9001
-        env:
-          MINIO_ROOT_USER: admin
-          MINIO_ROOT_PASSWORD: password
-          MINIO_DOMAIN: storage
-          MINIO_REGION_NAME: us-east-1
-          MINIO_REGION: us-east-1
-        options:
-          >
-          /bin/sh -c "server /data --console-address :9001"
-      minio-setup:
-        image: minio/mc
-        options: >
-          /bin/sh -c "
-          until (echo > /dev/tcp/minio/9000) >/dev/null 2>&1; do
-            echo 'Waiting for MinIO...';
-            sleep 2;
-          done;
-          mc alias set myminio http://minio:9000 admin password;
-          mc mb myminio/dbtdremios3;
-          mc ls myminio;
-          "
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
@@ -64,27 +37,24 @@ jobs:
       - name: Install AWS CLI
         run: pip install awscli
 
-      - name: Configure AWS Credentials for MinIO
+      - name: Start MinIO Service
+        run: |
+          docker run -d \
+            -p 9000:9000 \
+            -p 9001:9001 \
+            -e "MINIO_ROOT_USER=admin" \
+            -e "MINIO_ROOT_PASSWORD=password" \
+            --name minio \
+            minio/minio server /data --console-address ":9001"
+
+      - name: Configure AWS credentials for MinIO
         run: |
           echo "AWS_ACCESS_KEY_ID=admin" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=password" >> $GITHUB_ENV
           echo "AWS_DEFAULT_REGION=us-east-1" >> $GITHUB_ENV
 
-      - name: Wait for MinIO to be Ready
-        run: |
-          for i in {1..10}; do
-            if curl -s http://minio:9000/minio/health/live; then
-              echo "MinIO is up."
-              exit 0
-            fi
-            echo "Waiting for MinIO..."
-            sleep 5
-          done
-          echo "MinIO did not become ready in time."
-          exit 1
-
-      - name: Create MinIO Bucket
-        run: aws --endpoint-url http://minio:9000 s3 mb s3://dbtdremios3
+      - name: Create MinIO bucket
+        run: aws --endpoint-url http://127.0.0.1:9000 s3 mb s3://dbtdremios3
 
       - name: "Create Dremio S3 Source"
         run: |
