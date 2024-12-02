@@ -7,9 +7,10 @@ on:
   pull_request:
     branches:
       - main
-
+      
 jobs:
-  CI:
+  run-tests:
+    name: Setup and run tests
     runs-on: ubuntu-latest
 
     steps:
@@ -227,19 +228,75 @@ jobs:
       - name: Run caching tests
         if: always()
         run: |
-          pytest tests/caching/ --junitxml=reports/caching.txt
+          pytest tests/caching/ > reports/caching.txt
+      
+      - name: Run component tests
+        if: always()
+        run : |
+          pytest tests/component/ > reports/component.txt
 
+      - name: Run functional/adapter/basic tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/basic/ > reports/basic.txt
+
+      - name: Run functional/adapter/dbt_clone tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/dbt_clone/ > reports/dbt_clone.txt
+
+      - name: Run functional/adapter/dremio_specific tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/dremio_specific/ > reports/dremio_specific.txt     
+
+      - name: Run functional/adapter/grants tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/grants/ > reports/grants.txt      
+
+      - name: Run functional/adapter/query_comment tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/query_comment/ > reports/query_comment.txt
+          
+      - name: Run functional/adapter/relation tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/relation/ > reports/relation.txt
+          
+      - name: Run functional/adapter/unit_testing tests
+        if: always()
+        run: |
+          pytest tests/functional/adapter/unit_testing/ > reports/unit_testing.txt
+
+      - name: Run hooks tests
+        if: always()
+        run: |
+          pytest tests/hooks/ > reports/hooks.txt
+
+      - name: Run simple_copy tests
+        if: always()
+        run: |
+          pytest tests/simple_copy/ > reports/simple_copy.txt
+
+      - name: Run unit tests
+        if: always()
+        run: |
+          pytest tests/unit/ > reports/unit.txt
+  
+  upload-artifacts:
+    name: Upload tests artifacts
+    runs-on: ubuntu-latest
+    needs: run-tests
+
+    steps:
       - name: Upload caching test report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: caching-test-report
           path: reports/caching.txt
-      
-      - name: Run component tests
-        if: always()
-        run : |
-          pytest tests/component/ --junitxml=reports/component.txt
 
       - name: Upload component test report
         if: always()
@@ -248,22 +305,12 @@ jobs:
           name: component-test-report
           path: reports/component.txt
 
-      - name: Run functional/adapter/basic tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/basic/ > reports/basic.txt
-
       - name: Upload functional/adapter/basic test report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: basic-test-report
           path: reports/basic.txt
-
-      - name: Run functional/adapter/dbt_clone tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/dbt_clone/ > reports/dbt_clone.txt
 
       - name: Upload functional/adapter/dbt_clone test report
         if: always()
@@ -272,22 +319,12 @@ jobs:
           name: dbt_clone-test-report
           path: reports/dbt_clone.txt
 
-      - name: Run functional/adapter/dremio_specific tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/dremio_specific/ > reports/dremio_specific.txt
-
       - name: Upload functional/adapter/dremio_specific test report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: dremio_specific-test-report
           path: reports/dremio_specific.txt
-
-      - name: Run functional/adapter/grants tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/grants/ > reports/grants.txt
 
       - name: Upload functional/adapter/grants test report
         if: always()
@@ -296,22 +333,12 @@ jobs:
           name: grants-test-report
           path: reports/grants.txt
 
-      - name: Run functional/adapter/query_comment tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/query_comment/ > reports/query_comment.txt
-
       - name: Upload functional/adapter/query_comment test report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: query_comment-test-report
           path: reports/query_comment.txt
-
-      - name: Run functional/adapter/relation tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/relation/ > reports/relation.txt
 
       - name: Upload functional/adapter/relation test report
         if: always()
@@ -320,22 +347,12 @@ jobs:
           name: relation-test-report
           path: reports/relation.txt
 
-      - name: Run functional/adapter/unit_testing tests
-        if: always()
-        run: |
-          pytest tests/functional/adapter/unit_testing/ > reports/unit_testing.txt
-
       - name: Upload functional/adapter/unit_testing test report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: unit_testing-test-report
           path: reports/unit_testing.txt
-
-      - name: Run hooks tests
-        if: always()
-        run: |
-          pytest tests/hooks/ > reports/hooks.txt
 
       - name: Upload hooks test report
         if: always()
@@ -344,22 +361,12 @@ jobs:
           name: hooks-test-report
           path: reports/hooks.txt
 
-      - name: Run simple_copy tests
-        if: always()
-        run: |
-          pytest tests/simple_copy/ > reports/simple_copy.txt
-
       - name: Upload simple_copy test report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: simple_copy-test-report
           path: reports/simple_copy.txt
-
-      - name: Run unit tests
-        if: always()
-        run: |
-          pytest tests/unit/ > reports/unit.txt
 
       - name: Upload unit tests report
         if: always()
