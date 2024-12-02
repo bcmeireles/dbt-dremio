@@ -48,7 +48,7 @@ jobs:
         run: |
           echo "DREMIO_SOFTWARE_HOST=dremio" >> $GITHUB_ENV
           echo "DREMIO_SOFTWARE_USERNAME=dremio" >> $GITHUB_ENV
-          echo "DREMIO_SOFTWARE_PASSWORD=${{ secrets.DREMIO_SOFTWARE_PASSWORD }}" >> $GITHUB_ENV
+          echo "DREMIO_SOFTWARE_PASSWORD=dremio123" >> $GITHUB_ENV
           echo "DREMIO_DATALAKE=dbt_test_source" >> $GITHUB_ENV
           echo "DREMIO_DATABASE=dbt_test" >> $GITHUB_ENV
           echo "DBT_TEST_USER_1=dbt_test_user_1" >> $GITHUB_ENV
