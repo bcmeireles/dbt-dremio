@@ -60,7 +60,7 @@ jobs:
         run: |
           # Install required tools
           sudo apt-get update
-          sudo apt-get install -y curl jq
+          sudo apt-get install -y curl jq git
 
           # Wait for Dremio to be ready
           until curl -s http://127.0.0.1:9047; do
@@ -130,7 +130,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r dev_requirements.txt
-          apt-get update && apt-get install -y git curl && pip install protobuf==4.21 dbt-core==1.8.0 && tail -f /dev/null && /bin/bash
+          pip install protobuf==4.21 dbt-core==1.8.0 && tail -f /dev/null && /bin/bash
 
       - name: Clean up __pycache__ directories
         run: find . -type d -name "__pycache__" -exec rm -r {} +
