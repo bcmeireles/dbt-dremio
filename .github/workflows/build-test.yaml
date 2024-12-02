@@ -230,6 +230,7 @@ jobs:
 
       # 13. Create .env File for Tests
       - name: Create .env file for tests
+        if: always()
         run: |
           mkdir -p tests
           cat <<EOF > tests/.env
@@ -245,6 +246,7 @@ jobs:
 
       # 14. Run Tests
       - name: Run caching tests
+        if: always()
         run: |
           pytest tests/caching/
       
@@ -257,50 +259,62 @@ jobs:
           pytest tests/fixtures/
 
       - name: Run functional/adapter/basic tests
+        if: always()
         run: |
           pytest tests/functional/adapter/basic/
       
       - name: Run functional/adapter/dbt_clone tests
+        if: always()
         run: |
           pytest tests/functional/adapter/dbt_clone/
       
       - name: Run functional/adapter/dremio_specific tests
+        if: always()
         run: |
           pytest tests/functional/adapter/dremio_specific/
       
       - name: Run functional/adapter/grants tests
+        if: always()
         run: |
           pytest tests/functional/adapter/grants/
       
       - name: Run functional/adapter/query_comment tests
+        if: always()
         run: |
           pytest tests/functional/adapter/query_comment/
 
       - name: Run functional/adapter/relation tests
+        if: always()
         run: |
           pytest tests/functional/adapter/relation/
 
       - name: Run functional/adapter/unit_testing tests
+        if: always()
         run: |
           pytest tests/functional/adapter/unit_testing/
         
       - name: Run functional/adapter/utils tests
+        if: always()
         run: |
           pytest tests/functional/adapters/utils/
 
       - name: Run hooks tests
+        if: always()
         run: |
           pytest tests/hooks/
 
       - name: Run simple_copy tests
+        if: always()
         run: |
           pytest tests/simples_copy/
           
       - name: Run unit tests
+        if: always()
         run: |
           pytest tests/unit/
 
       - name: Run utils tests
+        if: always()
         run: |
           pytest tests/utils/
 
