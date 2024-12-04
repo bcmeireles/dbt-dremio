@@ -175,16 +175,17 @@ class DremioCursor:
                     "Fetching more than 100000 records. This may result in slower performance."
                 )
 
-            while current_row_count < total_row_count:
-                combined_job_results["rows"].extend(
-                    job_results(
-                        self._parameters,
-                        self._job_id,
-                        offset=current_row_count,
-                        limit=row_limit,
-                    )["rows"]
-                )
-                current_row_count += row_limit
+            while True:
+                new_rows = job_results(
+                    self._parameters,
+                    self._job_id,
+                    offset=current_row_count,
+                    limit=row_limit,
+                )["rows"]
+                if not new_rows:
+                    break
+                combined_job_results["rows"].extend(new_rows)
+                current_row_count += len(new_rows)
 
             self._job_results = combined_job_results
 
