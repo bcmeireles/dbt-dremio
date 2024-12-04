@@ -19,7 +19,7 @@ Version 1.8.0 of the dbt-dremio adapter is compatible with dbt-core versions 1.8
 ## Getting started
 
 -   [Install dbt-dremio](https://docs.getdbt.com/reference/warehouse-setups/dremio-setup)
-    -   Version 1.8.0 of dbt-dremio requires dbt-core >= 1.8.*.
+    -   Version 1.8.0 of dbt-dremio requires dbt-core >= 1.8.*
 -   Read the [introduction](https://docs.getdbt.com/docs/introduction/) and [viewpoint](https://docs.getdbt.com/docs/about/viewpoint/)
 
 ## Join the dbt Community
