@@ -25,6 +25,7 @@ prettytable==3.6.0
 pycparser==2.21
 pyrsistent==0.19.3
 pytest==7.2.2
+pytest-cov
 python-dateutil==2.8.2
 python-slugify==8.0.1
 pytimeparse==1.1.8

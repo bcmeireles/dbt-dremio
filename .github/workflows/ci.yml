@@ -13,8 +13,8 @@ jobs:
     name: Setup and Run Tests
     runs-on: ubuntu-latest
     env:
-      RETRY_COUNT: 12 # number of retries for health checks
-      SLEEP_INTERVAL: 5 # Sleep duration in seconds between retries
+      RETRY_COUNT: 12
+      SLEEP_INTERVAL: 5
       MINIO_HEALTH_URL: http://localhost:9000/minio/health/live
       DREMIO_HEALTH_URL: http://localhost:9047
       MINIO_ROOT_USER: admin
@@ -51,7 +51,7 @@ jobs:
       - name: Create Dremio S3 Source
         run: bash .github/scripts/create_dremio_s3_source.sh
 
-      - name: Install Dependencies
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -75,7 +75,7 @@ jobs:
       - name: Create .env file for tests
         run: bash .github/scripts/create_env_file.sh
 
-      - name: Run tests
+      - name: Run tests (no coverage)
         run: bash .github/scripts/run_tests.sh
 
       - name: Run tests with coverage
@@ -191,9 +191,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies for Coverage Compare
         run: |
-          pip install pytest pytest-cov
+          pip install --upgrade pip
+          pip install -r dev_requirements.txt
+          pip install .
+          sudo apt-get update
           sudo apt-get install -y libxml2-utils bc
 
       - name: Fetch main branch coverage
@@ -222,6 +230,7 @@ jobs:
           echo "Main branch coverage: $main_coverage"
           echo "PR branch coverage: $pr_coverage"
 
+          # Compare as floating-point numbers
           if (( $(echo "$pr_coverage < $main_coverage" | bc -l) )); then
             echo "Test coverage decreased! Main: $main_coverage, PR: $pr_coverage"
             exit 1
