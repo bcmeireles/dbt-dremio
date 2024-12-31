@@ -75,8 +75,8 @@ jobs:
       - name: Create .env file for tests
         run: bash .github/scripts/create_env_file.sh
 
-      #- name: Run tests (no coverage)
-      #  run: bash .github/scripts/run_tests.sh
+      - name: Run tests (no coverage)
+        run: bash .github/scripts/run_tests.sh
 
       - name: Run tests with coverage
         continue-on-error: true # ignore exit code
@@ -209,7 +209,7 @@ jobs:
         run: |
           git fetch origin main:main
           git checkout main
-          pytest --cov=dbt-dremio --cov-report=xml --cov-report=term
+          pytest --cov=. --cov-report=xml --cov-report=term
           mv coverage.xml main_coverage.xml
 
       - name: Download PR coverage report
