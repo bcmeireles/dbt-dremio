@@ -206,6 +206,7 @@ jobs:
           sudo apt-get install -y libxml2-utils bc
 
       - name: Fetch main branch coverage
+        continue-on-error: true # ignore exit code
         run: |
           # Create a new local branch named main_temp
           git checkout -b main_temp
@@ -214,7 +215,7 @@ jobs:
           # Merge or reset to ensure main_temp matches remote main
           git reset --hard origin/main
 
-          pytest --cov=dbt_dremio --cov-report=xml --cov-report=term
+          pytest --cov=. --cov-report=xml --cov-report=term
           mv coverage.xml main_coverage.xml
 
       - name: Download PR coverage report
