@@ -229,7 +229,7 @@ jobs:
 
       - name: Compare coverage
         run: |
-          if [ ! -f main_coverage.xml ] || [ ! -f pr_coverage.xml ]; then
+          if [ ! -f coverage.xml ] || [ ! -f pr_coverage.xml ]; then
             echo "Coverage report missing."
             exit 1
           fi
