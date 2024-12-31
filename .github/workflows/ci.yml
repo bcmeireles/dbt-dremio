@@ -75,8 +75,8 @@ jobs:
       - name: Create .env file for tests
         run: bash .github/scripts/create_env_file.sh
 
-      - name: Run tests (no coverage)
-        run: bash .github/scripts/run_tests.sh
+      #- name: Run tests (no coverage)
+      #  run: bash .github/scripts/run_tests.sh
 
       - name: Run tests with coverage
         run: |
