@@ -181,50 +181,50 @@ jobs:
           exit $exit_code
 
   verify-coverage:
-  name: Verify Coverage Against Main
-  runs-on: ubuntu-latest
-  needs: run-tests
+    name: Verify Coverage Against Main
+    runs-on: ubuntu-latest
+    needs: run-tests
 
-  steps:
-    - name: Check out the repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Install dependencies
-      run: |
-        pip install pytest pytest-cov
-        sudo apt-get install -y libxml2-utils bc
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+          sudo apt-get install -y libxml2-utils bc
 
-    - name: Fetch main branch coverage
-      run: |
-        git fetch origin main:main
-        git checkout main
-        pytest --cov=dbt-dremio --cov-report=xml --cov-report=term
-        mv coverage.xml main_coverage.xml
+      - name: Fetch main branch coverage
+        run: |
+          git fetch origin main:main
+          git checkout main
+          pytest --cov=dbt-dremio --cov-report=xml --cov-report=term
+          mv coverage.xml main_coverage.xml
 
-    - name: Download PR coverage report
-      uses: actions/download-artifact@v3
-      with:
-        name: coverage-report
-        path: pr_coverage.xml
+      - name: Download PR coverage report
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-report
+          path: pr_coverage.xml
 
-    - name: Compare coverage
-      run: |
-        if [ ! -f main_coverage.xml ] || [ ! -f pr_coverage.xml ]; then
-          echo "Coverage report missing."
-          exit 1
-        fi
+      - name: Compare coverage
+        run: |
+          if [ ! -f main_coverage.xml ] || [ ! -f pr_coverage.xml ]; then
+            echo "Coverage report missing."
+            exit 1
+          fi
 
-        main_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" main_coverage.xml)
-        pr_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" pr_coverage.xml)
+          main_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" main_coverage.xml)
+          pr_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" pr_coverage.xml)
 
-        echo "Main branch coverage: $main_coverage"
-        echo "PR branch coverage: $pr_coverage"
+          echo "Main branch coverage: $main_coverage"
+          echo "PR branch coverage: $pr_coverage"
 
-        if (( $(echo "$pr_coverage < $main_coverage" | bc -l) )); then
-          echo "Test coverage decreased! Main: $main_coverage, PR: $pr_coverage"
-          exit 1
-        else
-          echo "Test coverage is acceptable. Main: $main_coverage, PR: $pr_coverage"
-        fi
+          if (( $(echo "$pr_coverage < $main_coverage" | bc -l) )); then
+            echo "Test coverage decreased! Main: $main_coverage, PR: $pr_coverage"
+            exit 1
+          else
+            echo "Test coverage is acceptable. Main: $main_coverage, PR: $pr_coverage"
+          fi
