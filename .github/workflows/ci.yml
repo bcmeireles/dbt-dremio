@@ -80,7 +80,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=dbt-dremio --cov-report=xml --cov-report=term
+          pytest --cov=. --cov-report=xml --cov-report=term
         env:
           PYTHONPATH: .
 
