@@ -216,7 +216,6 @@ jobs:
           git reset --hard origin/main
 
           pytest --cov=. --cov-report=xml --cov-report=term
-          mv coverage.xml main_coverage.xml
 
       - name: Download PR coverage report
         uses: actions/download-artifact@v3
@@ -227,7 +226,6 @@ jobs:
       - name: Debug coverage for main
         run: |
           ls -lh coverage.xml || echo "No coverage.xml found"
-          ls -lh main_coverage.xml || echo "No main_coverage.xml found"
 
       - name: Compare coverage
         run: |
@@ -236,7 +234,7 @@ jobs:
             exit 1
           fi
 
-          main_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" main_coverage.xml)
+          main_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" coverage.xml)
           pr_coverage=$(xmllint --xpath "string(//coverage/@line-rate)" pr_coverage.xml)
 
           echo "Main branch coverage: $main_coverage"
