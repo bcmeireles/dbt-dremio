@@ -15,5 +15,5 @@
 from dbt.tests.adapter.basic.test_empty import BaseEmpty
 
 
-class TestBasicEmptyDremio(BaseEmpty):
+class TestEmptyDremio(BaseEmpty):
     pass
