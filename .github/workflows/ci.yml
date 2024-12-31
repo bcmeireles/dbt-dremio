@@ -195,6 +195,7 @@ jobs:
         run: |
           git fetch origin main:main
           git checkout main
+          pip install pytest pytest-cov
           pytest --cov=your_project --cov-report=xml --cov-report=term
           mv coverage.xml main_coverage.xml
 
