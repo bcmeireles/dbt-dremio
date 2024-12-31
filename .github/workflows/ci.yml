@@ -224,6 +224,11 @@ jobs:
           name: coverage-report
           path: pr_coverage.xml
 
+      - name: Debug coverage for main
+        run: |
+          ls -lh coverage.xml || echo "No coverage.xml found"
+          ls -lh main_coverage.xml || echo "No main_coverage.xml found"
+
       - name: Compare coverage
         run: |
           if [ ! -f main_coverage.xml ] || [ ! -f pr_coverage.xml ]; then
