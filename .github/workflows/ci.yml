@@ -207,9 +207,14 @@ jobs:
 
       - name: Fetch main branch coverage
         run: |
-          git fetch origin main:main
-          git checkout main
-          pytest --cov=. --cov-report=xml --cov-report=term
+          # Create a new local branch named main_temp
+          git checkout -b main_temp
+          git fetch origin main
+          git checkout main_temp
+          # Merge or reset to ensure main_temp matches remote main
+          git reset --hard origin/main
+
+          pytest --cov=dbt_dremio --cov-report=xml --cov-report=term
           mv coverage.xml main_coverage.xml
 
       - name: Download PR coverage report
